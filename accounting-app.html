@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人记账工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .glass {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex justify-between items-center">
+                <h1 class="text-3xl font-bold">💰 个人记账工具</h1>
+                <div class="space-x-2">
+                    <button onclick="exportData()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                        📥 导出数据
+                    </button>
+                    <button onclick="importData()" class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+                        📤 导入数据
+                    </button>
+                    <input type="file" id="importFile" onchange="handleImport(event)" class="hidden" accept=".json">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-8">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">总收入</p>
+                        <p class="text-3xl font-bold text-green-600" id="totalIncome">¥0</p>
+                    </div>
+                    <div class="text-4xl">📈</div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">总支出</p>
+                        <p class="text-3xl font-bold text-red-600" id="totalExpense">¥0</p>
+                    </div>
+                    <div class="text-4xl">📉</div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">结余</p>
+                        <p class="text-3xl font-bold text-blue-600" id="balance">¥0</p>
+                    </div>
+                    <div class="text-4xl">💎</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Add Transaction Form -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-xl shadow-lg p-6 sticky top-4">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">📝 记一笔</h2>
+                    <form id="transactionForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                            <div class="flex space-x-2">
+                                <button type="button" onclick="setType('expense')" id="btnExpense" class="flex-1 bg-red-500 text-white py-2 rounded-lg font-medium transition">
+                                    支出
+                                </button>
+                                <button type="button" onclick="setType('income')" id="btnIncome" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition">
+                                    收入
+                                </button>
+                            </div>
+                            <input type="hidden" id="type" value="expense">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">金额</label>
+                            <input type="number" id="amount" step="0.01" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="0.00">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">分类</label>
+                            <select id="category" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="餐饮">🍜 餐饮</option>
+                                <option value="交通">🚗 交通</option>
+                                <option value="购物">🛍️ 购物</option>
+                                <option value="娱乐">🎬 娱乐</option>
+                                <option value="医疗">💊 医疗</option>
+                                <option value="教育">📚 教育</option>
+                                <option value="居住">🏠 居住</option>
+                                <option value="通讯">📱 通讯</option>
+                                <option value="工资">💰 工资</option>
+                                <option value="投资">📈 投资</option>
+                                <option value="兼职">💼 兼职</option>
+                                <option value="其他">📦 其他</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">日期</label>
+                            <input type="date" id="date" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                            <textarea id="note" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="可选..."></textarea>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 rounded-lg font-bold hover:from-purple-600 hover:to-indigo-700 transition transform hover:scale-105">
+                            ✅ 保存记录
+                        </button>
+                    </form>
+
+                    <!-- Manage Categories -->
+                    <div class="mt-6 pt-6 border-t">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">⚙️ 管理分类</h3>
+                        <div class="flex space-x-2">
+                            <input type="text" id="newCategory" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="新分类名称">
+                            <button onclick="addCategory()" class="bg-green-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-600 transition">
+                                添加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction List & Charts -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Charts -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">📊 统计图表</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                        <div>
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">月份筛选</label>
+                            <input type="month" id="monthFilter" onchange="filterTransactions()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">类型筛选</label>
+                            <select id="typeFilter" onchange="filterTransactions()" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                                <option value="all">全部</option>
+                                <option value="income">收入</option>
+                                <option value="expense">支出</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button onclick="clearFilter()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition">
+                                清除筛选
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction List -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">📋 记账明细</h2>
+                        <span class="text-sm text-gray-500" id="recordCount">共 0 条记录</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="border-b border-gray-200">
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">日期</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">类型</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">分类</th>
+                                    <th class="text-left py-3 px-4 text-sm font-medium text-gray-600">备注</th>
+                                    <th class="text-right py-3 px-4 text-sm font-medium text-gray-600">金额</th>
+                                    <th class="text-center py-3 px-4 text-sm font-medium text-gray-600">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transactionList"></tbody>
+                        </table>
+                    </div>
+                    <div id="emptyState" class="text-center py-12 text-gray-400">
+                        <div class="text-6xl mb-4">📝</div>
+                        <p>还没有记账记录，快来记第一笔吧！</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h2 class="text-xl font-bold mb-4">✏️ 编辑记录</h2>
+            <form id="editForm" class="space-y-4">
+                <input type="hidden" id="editId">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">类型</label>
+                    <select id="editType" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                        <option value="expense">支出</option>
+                        <option value="income">收入</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">金额</label>
+                    <input type="number" id="editAmount" step="0.01" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">分类</label>
+                    <select id="editCategory" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">日期</label>
+                    <input type="date" id="editDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                    <textarea id="editNote" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+                </div>
+                <div class="flex space-x-3">
+                    <button type="submit" class="flex-1 bg-green-500 text-white py-2 rounded-lg font-medium hover:bg-green-600 transition">
+                        保存
+                    </button>
+                    <button type="button" onclick="closeEditModal()" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition">
+                        取消
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let transactions = [];
+        let categories = ['餐饮', '交通', '购物', '娱乐', '医疗', '教育', '居住', '通讯', '工资', '投资', '兼职', '其他'];
+        let categoryChart = null;
+        let trendChart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            document.getElementById('date').valueAsDate = new Date();
+            document.getElementById('monthFilter').value = new Date().toISOString().slice(0, 7);
+            updateUI();
+        });
+
+        // Data Management
+        function loadData() {
+            const saved = localStorage.getItem('accountingData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                transactions = data.transactions || [];
+                categories = data.categories || categories;
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem('accountingData', JSON.stringify({
+                transactions,
+                categories
+            }));
+            updateUI();
+        }
+
+        // Type Selection
+        function setType(type) {
+            document.getElementById('type').value = type;
+            const expenseBtn = document.getElementById('btnExpense');
+            const incomeBtn = document.getElementById('btnIncome');
+            
+            if (type === 'expense') {
+                expenseBtn.className = 'flex-1 bg-red-500 text-white py-2 rounded-lg font-medium transition';
+                incomeBtn.className = 'flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition';
+                updateCategoryOptions('expense');
+            } else {
+                incomeBtn.className = 'flex-1 bg-green-500 text-white py-2 rounded-lg font-medium transition';
+                expenseBtn.className = 'flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium transition';
+                updateCategoryOptions('income');
+            }
+        }
+
+        function updateCategoryOptions(type) {
+            const select = document.getElementById('category');
+            select.innerHTML = '';
+            
+            const expenseCats = ['餐饮', '交通', '购物', '娱乐', '医疗', '教育', '居住', '通讯', '其他'];
+            const incomeCats = ['工资', '投资', '兼职', '其他'];
+            
+            const cats = type === 'expense' ? expenseCats : incomeCats;
+            const icons = {
+                '餐饮': '🍜', '交通': '🚗', '购物': '🛍️', '娱乐': '🎬', '医疗': '💊',
+                '教育': '📚', '居住': '🏠', '通讯': '📱', '工资': '💰', '投资': '📈',
+                '兼职': '💼', '其他': '📦'
+            };
+            
+            cats.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = `${icons[cat] || '📦'} ${cat}`;
+                select.appendChild(option);
+            });
+        }
+
+        // Add Category
+        function addCategory() {
+            const input = document.getElementById('newCategory');
+            const name = input.value.trim();
+            if (name && !categories.includes(name)) {
+                categories.push(name);
+                input.value = '';
+                saveData();
+                alert('分类添加成功！');
+            }
+        }
+
+        // Form Submit
+        document.getElementById('transactionForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const transaction = {
+                id: Date.now(),
+                type: document.getElementById('type').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                category: document.getElementById('category').value,
+                date: document.getElementById('date').value,
+                note: document.getElementById('note').value.trim(),
+                createdAt: new Date().toISOString()
+            };
+            
+            transactions.unshift(transaction);
+            saveData();
+            
+            e.target.reset();
+            document.getElementById('date').valueAsDate = new Date();
+            setType('expense');
+        });
+
+        // Update UI
+        function updateUI() {
+            updateSummary();
+            renderTransactions();
+            updateCharts();
+            updateEditCategoryOptions();
+        }
+
+        function updateSummary() {
+            const totalIncome = transactions
+                .filter(t => t.type === 'income')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const totalExpense = transactions
+                .filter(t => t.type === 'expense')
+                .reduce((sum, t) => sum + t.amount, 0);
+            
+            const balance = totalIncome - totalExpense;
+            
+            document.getElementById('totalIncome').textContent = `¥${totalIncome.toFixed(2)}`;
+            document.getElementById('totalExpense').textContent = `¥${totalExpense.toFixed(2)}`;
+            document.getElementById('balance').textContent = `¥${balance.toFixed(2)}`;
+        }
+
+        function renderTransactions() {
+            const list = document.getElementById('transactionList');
+            const emptyState = document.getElementById('emptyState');
+            const count = document.getElementById('recordCount');
+            
+            const filtered = getFilteredTransactions();
+            count.textContent = `共 ${filtered.length} 条记录`;
+            
+            if (filtered.length === 0) {
+                list.innerHTML = '';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            list.innerHTML = filtered.map(t => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <td class="py-3 px-4 text-sm">${t.date}</td>
+                    <td class="py-3 px-4 text-sm">
+                        <span class="px-2 py-1 rounded text-xs font-medium ${
+                            t.type === 'income' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-red-100 text-red-700'
+                        }">
+                            ${t.type === 'income' ? '收入' : '支出'}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-sm">${t.category}</td>
+                    <td class="py-3 px-4 text-sm text-gray-600">${t.note || '-'}</td>
+                    <td class="py-3 px-4 text-sm text-right font-medium ${
+                        t.type === 'income' ? 'text-green-600' : 'text-red-600'
+                    }">
+                        ${t.type === 'income' ? '+' : '-'}¥${t.amount.toFixed(2)}
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <button onclick="editTransaction(${t.id})" class="text-blue-500 hover:text-blue-700 mr-2">✏️</button>
+                        <button onclick="deleteTransaction(${t.id})" class="text-red-500 hover:text-red-700">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getFilteredTransactions() {
+            const monthFilter = document.getElementById('monthFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            
+            return transactions.filter(t => {
+                const matchMonth = !monthFilter || t.date.startsWith(monthFilter);
+                const matchType = typeFilter === 'all' || t.type === typeFilter;
+                return matchMonth && matchType;
+            });
+        }
+
+        function filterTransactions() {
+            renderTransactions();
+        }
+
+        function clearFilter() {
+            document.getElementById('monthFilter').value = '';
+            document.getElementById('typeFilter').value = 'all';
+            renderTransactions();
+        }
+
+        // Edit Transaction
+        function editTransaction(id) {
+            const t = transactions.find(x => x.id === id);
+            if (!t) return;
+            
+            document.getElementById('editId').value = t.id;
+            document.getElementById('editType').value = t.type;
+            document.getElementById('editAmount').value = t.amount;
+            document.getElementById('editCategory').value = t.category;
+            document.getElementById('editDate').value = t.date;
+            document.getElementById('editNote').value = t.note || '';
+            
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function updateEditCategoryOptions() {
+            const select = document.getElementById('editCategory');
+            select.innerHTML = categories.map(cat => 
+                `<option value="${cat}">${cat}</option>`
+            ).join('');
+        }
+
+        document.getElementById('editForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const id = parseInt(document.getElementById('editId').value);
+            const index = transactions.findIndex(t => t.id === id);
+            
+            if (index !== -1) {
+                transactions[index] = {
+                    ...transactions[index],
+                    type: document.getElementById('editType').value,
+                    amount: parseFloat(document.getElementById('editAmount').value),
+                    category: document.getElementById('editCategory').value,
+                    date: document.getElementById('editDate').value,
+                    note: document.getElementById('editNote').value.trim()
+                };
+                
+                saveData();
+                closeEditModal();
+            }
+        });
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function deleteTransaction(id) {
+            if (confirm('确定要删除这条记录吗？')) {
+                transactions = transactions.filter(t => t.id !== id);
+                saveData();
+            }
+        }
+
+        // Charts
+        function updateCharts() {
+            updateCategoryChart();
+            updateTrendChart();
+        }
+
+        function updateCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            
+            const month = document.getElementById('monthFilter').value;
+            const expenses = transactions.filter(t => 
+                t.type === 'expense' && (!month || t.date.startsWith(month))
+            );
+            
+            const categoryData = {};
+            expenses.forEach(t => {
+                categoryData[t.category] = (categoryData[t.category] || 0) + t.amount;
+            });
+            
+            const labels = Object.keys(categoryData);
+            const data = Object.values(categoryData);
+            
+            if (categoryChart) categoryChart.destroy();
+            
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: [
+                            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+                            '#9966FF', '#FF9F40', '#C9CBCF', '#7BC225',
+                            '#E7E9ED', '#764ba2', '#667eea', '#f093fb'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: true, text: '支出分类分布' }
+                    }
+                }
+            });
+        }
+
+        function updateTrendChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            
+            const monthlyData = {};
+            transactions.forEach(t => {
+                const month = t.date.slice(0, 7);
+                if (!monthlyData[month]) {
+                    monthlyData[month] = { income: 0, expense: 0 };
+                }
+                if (t.type === 'income') {
+                    monthlyData[month].income += t.amount;
+                } else {
+                    monthlyData[month].expense += t.amount;
+                }
+            });
+            
+            const sortedMonths = Object.keys(monthlyData).sort().slice(-6);
+            const incomeData = sortedMonths.map(m => monthlyData[m].income);
+            const expenseData = sortedMonths.map(m => monthlyData[m].expense);
+            
+            if (trendChart) trendChart.destroy();
+            
+            trendChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedMonths,
+                    datasets: [
+                        {
+                            label: '收入',
+                            data: incomeData,
+                            backgroundColor: '#4ade80'
+                        },
+                        {
+                            label: '支出',
+                            data: expenseData,
+                            backgroundColor: '#f87171'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: true, text: '月度收支趋势' }
+                    },
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        // Export/Import
+        function exportData() {
+            const data = {
+                transactions,
+                categories,
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `记账数据_${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importData() {
+            document.getElementById('importFile').click();
+        }
+
+        function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.transactions && Array.isArray(data.transactions)) {
+                        transactions = data.transactions;
+                        categories = data.categories || categories;
+                        saveData();
+                        alert('数据导入成功！');
+                    } else {
+                        alert('无效的数据格式！');
+                    }
+                } catch (err) {
+                    alert('文件解析失败！');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // Close modal on outside click
+        document.getElementById('editModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editModal') {
+                closeEditModal();
+            }
+        });
+    </script>
+</body>
+</html>
